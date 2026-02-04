@@ -1,7 +1,9 @@
 version: '3.8'
 
 services:
-  # Servicio PHP-FPM
+  # ==========================
+  # PHP-FPM (Laravel App)
+  # ==========================
   app:
     build:
       context: .
@@ -15,22 +17,31 @@ services:
     volumes:
       - ./:/var/www/html
       - ./docker/php/php.ini:/usr/local/etc/php/conf.d/custom.ini
-      # Excluir node_modules y vendor del volumen para mejor performance
-      - /var/www/html/node_modules
+      # Evita sobreescribir vendor/node_modules del contenedor
       - /var/www/html/vendor
+      - /var/www/html/node_modules
+    environment:
+      PHP_IDE_CONFIG: serverName=products-api
+      OPcache.enable: 0
+      OPcache.validate_timestamps: 1
     networks:
       - products-network
     depends_on:
       postgres:
         condition: service_healthy
-    environment:
-      - PHP_IDE_CONFIG=serverName=products-api
-      - OPcache.enable=0
-      - OPcache.validate_timestamps=1
     entrypoint: ["/usr/local/bin/docker-entrypoint.sh"]
     command: ["php-fpm"]
 
-  # Servicio Nginx
+    # ✅ Healthcheck (CLAVE para start.sh)
+    healthcheck:
+      test: ["CMD", "php", "-v"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ==========================
+  # Nginx
+  # ==========================
   nginx:
     image: nginx:alpine
     container_name: products-api-nginx
@@ -45,7 +56,9 @@ services:
     depends_on:
       - app
 
-  # Servicio PostgreSQL
+  # ==========================
+  # PostgreSQL
+  # ==========================
   postgres:
     image: postgres:15-alpine
     container_name: products-api-postgres
@@ -62,24 +75,29 @@ services:
     networks:
       - products-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-products_user}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-products_user} -d ${DB_DATABASE:-products_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # Composer como servicio independiente
+  # ==========================
+  # Composer (opcional)
+  # ==========================
   composer:
     image: composer:latest
     container_name: products-api-composer
+    working_dir: /app
     volumes:
       - ./:/app
-    working_dir: /app
     networks:
       - products-network
-    command: install
     profiles:
       - tools
+    command: install
 
+# ==========================
+# Networks & Volumes
+# ==========================
 networks:
   products-network:
     driver: bridge

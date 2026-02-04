@@ -1,33 +1,26 @@
-#!/bin/bash
+#!/bin/sh
 set -e
 
-# Función para configurar permisos
-setup_permissions() {
-    if [ -d "/var/www/html" ]; then
-        echo "Configurando permisos para Laravel..."
-        
-        # Crear directorios si no existen
-        mkdir -p /var/www/html/storage/framework/{sessions,views,cache}
-        mkdir -p /var/www/html/storage/logs
-        mkdir -p /var/www/html/bootstrap/cache
-        
-        # Configurar permisos
-        # Si ejecutamos como root, cambiar ownership y permisos
-        if [ "$(id -u)" = "0" ]; then
-            chown -R laravel:laravel /var/www/html/storage 2>/dev/null || true
-            chown -R laravel:laravel /var/www/html/bootstrap/cache 2>/dev/null || true
-            chmod -R 775 /var/www/html/storage 2>/dev/null || true
-            chmod -R 775 /var/www/html/bootstrap/cache 2>/dev/null || true
-        fi
-    fi
-}
+echo "🔧 Inicializando contenedor Laravel (entrypoint)"
 
-# Ejecutar configuración de permisos
-setup_permissions
+APP_DIR="/var/www/html"
 
-# Si ejecutamos como root, cambiar al usuario laravel antes de ejecutar el comando
-if [ "$(id -u)" = "0" ]; then
-    exec gosu laravel "$@"
-else
-    exec "$@"
-fi
+# Crear carpetas necesarias
+mkdir -p \
+  "$APP_DIR/storage/framework/sessions" \
+  "$APP_DIR/storage/framework/views" \
+  "$APP_DIR/storage/framework/cache" \
+  "$APP_DIR/storage/logs" \
+  "$APP_DIR/bootstrap/cache"
+
+# Permisos SOLO donde Laravel escribe
+chown -R www-data:www-data \
+  "$APP_DIR/storage" \
+  "$APP_DIR/bootstrap/cache"
+
+chmod -R 775 \
+  "$APP_DIR/storage" \
+  "$APP_DIR/bootstrap/cache"
+
+
+exec "$@"

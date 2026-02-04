@@ -1,12 +1,12 @@
 {
     "name": "laravel/laravel",
     "type": "project",
-    "description": "The skeleton application for the Laravel framework.",
-    "keywords": ["laravel", "framework"],
+    "description": "Products API built with Laravel, Docker and Swagger.",
+    "keywords": ["laravel", "framework", "api", "swagger"],
     "license": "MIT",
     "require": {
         "php": "^8.1",
-        "darkaonline/l5-swagger": "^10.0",
+        "darkaonline/l5-swagger": "^8.6",
         "guzzlehttp/guzzle": "^7.2",
         "laravel/framework": "^10.10",
         "laravel/sanctum": "^3.3",
@@ -34,18 +34,23 @@
         }
     },
     "scripts": {
-        "post-autoload-dump": [
-            "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
-            "@php artisan package:discover --ansi"
-        ],
-        "post-update-cmd": [
-            "@php artisan vendor:publish --tag=laravel-assets --ansi --force"
-        ],
         "post-root-package-install": [
             "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
         ],
         "post-create-project-cmd": [
-            "@php artisan key:generate --ansi"
+            "@php artisan key:generate --force --ansi"
+        ],
+        "post-install-cmd": [
+            "@php artisan key:generate --force --ansi",
+            "@php artisan vendor:publish --provider=\"L5Swagger\\\\L5SwaggerServiceProvider\" --tag=\"l5-swagger-config\" --force",
+            "@php artisan vendor:publish --provider=\"L5Swagger\\\\L5SwaggerServiceProvider\" --tag=\"l5-swagger-assets\" --force"
+        ],
+        "post-update-cmd": [
+            "@php artisan vendor:publish --provider=\"L5Swagger\\\\L5SwaggerServiceProvider\" --tag=\"l5-swagger-assets\" --force"
+        ],
+        "post-autoload-dump": [
+            "Illuminate\\\\Foundation\\\\ComposerScripts::postAutoloadDump",
+            "@php artisan package:discover --ansi"
         ]
     },
     "extra": {
@@ -58,7 +63,6 @@
         "preferred-install": "dist",
         "sort-packages": true,
         "allow-plugins": {
-            "pestphp/pest-plugin": true,
             "php-http/discovery": true
         }
     },

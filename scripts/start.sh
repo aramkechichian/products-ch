@@ -1,63 +1,62 @@
 #!/bin/bash
-
-# Script para levantar el servidor de desarrollo
-# Este script debe ejecutarse desde la raíz del proyecto
+set -e
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
+cd "$PROJECT_ROOT"
 
-cd "$PROJECT_ROOT" || exit 1
-
-echo "🚀 Levantando servidor de desarrollo..."
+echo "🚀 Levantando entorno de desarrollo"
 echo ""
 
-# Verificar si .env existe
+# .env
 if [ ! -f .env ]; then
-    echo "⚠️  Archivo .env no encontrado. Ejecutando setup..."
-    ./scripts/setup.sh
+  echo "⚠️  .env no encontrado"
+  exit 1
 fi
 
-# Levantar contenedores
-echo "📦 Levantando contenedores Docker..."
+# Docker
 docker-compose up -d
 
-# Esperar a que los servicios estén listos
-echo "⏳ Esperando a que los servicios estén listos..."
-sleep 5
+# Esperar app healthy
+echo "⏳ Esperando contenedor app..."
+until docker inspect --format='{{.State.Health.Status}}' products-api-app 2>/dev/null | grep -q healthy; do
+  sleep 2
+done
 
-# Verificar si Swagger está instalado y generar documentación
-if docker-compose exec -T app composer show darkaonline/l5-swagger > /dev/null 2>&1; then
-    echo "📚 Generando documentación Swagger..."
-    docker-compose exec -T app php artisan l5-swagger:generate > /dev/null 2>&1 || echo "⚠️  Swagger no configurado aún. Ejecuta: ./scripts/install-swagger.sh"
+echo "✅ App healthy"
+
+# Composer
+echo "📦 Verificando dependencias..."
+if ! docker-compose exec -T app test -f vendor/autoload.php 2>/dev/null; then
+  echo "📦 Instalando dependencias..."
+  INSTALL_OUTPUT=$(docker-compose exec -T app composer install --no-interaction --prefer-dist --optimize-autoloader 2>&1) || true
+  echo "$INSTALL_OUTPUT"
+  if echo "$INSTALL_OUTPUT" | grep -q "compatible set of packages"; then
+    echo "⚠️  Problema de compatibilidad detectado. Actualizando dependencias..."
+    docker-compose exec -T app composer update --no-interaction --prefer-dist --with-all-dependencies
+  fi
 fi
 
-# Esperar a que los servicios estén listos
-echo "⏳ Esperando a que los servicios estén listos..."
-sleep 5
+# Swagger
+if ! docker-compose exec -T app test -d vendor/darkaonline/l5-swagger 2>/dev/null; then
+  echo "📦 Instalando Swagger..."
+  docker-compose exec -T app composer require darkaonline/l5-swagger --no-interaction
+  docker-compose exec -T app php artisan vendor:publish --provider="L5Swagger\L5SwaggerServiceProvider" --tag="l5-swagger-config" 2>/dev/null || true
+fi
 
-# Verificar estado
-echo ""
-echo "📊 Estado de los contenedores:"
-docker-compose ps
+# Migraciones
+echo "🗄️  Ejecutando migraciones..."
+docker-compose exec -T app php artisan migrate --force 2>/dev/null || echo "⚠️  Error ejecutando migraciones"
+
+# Swagger
+echo "📚 Generando documentación Swagger..."
+docker-compose exec -T app php artisan config:clear 2>/dev/null || true
+docker-compose exec -T app php artisan l5-swagger:generate 2>/dev/null || true
 
 echo ""
-echo "✅ Servidor levantado!"
+echo "✅ Proyecto listo"
+echo "🌐 API:     http://localhost:8080"
+echo "📘 Swagger: http://localhost:8080/api/documentation"
 echo ""
-echo "🌐 Acceso a la API:"
-echo "   - API Base:      http://localhost:8080"
-echo "   - API V1:        http://localhost:8080/api/v1"
-echo "   - Health:        http://localhost:8080/"
-echo "   - Swagger UI:     http://localhost:8080/api/documentation"
-echo ""
-echo "📝 Endpoints disponibles:"
-echo "   POST   http://localhost:8080/api/v1/auth/register"
-echo "   POST   http://localhost:8080/api/v1/auth/login"
-echo "   GET    http://localhost:8080/api/v1/auth/me (requiere token)"
-echo "   POST   http://localhost:8080/api/v1/auth/logout (requiere token)"
-echo "   POST   http://localhost:8080/api/v1/auth/logout-all (requiere token)"
-echo ""
-echo "📋 Ver logs:"
-echo "   docker-compose logs -f"
-echo ""
-echo "🛑 Detener servidor:"
-echo "   docker-compose down"
+
+docker-compose logs -f
