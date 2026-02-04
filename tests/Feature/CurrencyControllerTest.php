@@ -48,6 +48,7 @@ class CurrencyControllerTest extends TestCase
      */
     public function test_can_list_currencies(): void
     {
+        $initialCount = Currency::count();
         Currency::factory()->count(3)->create();
 
         $response = $this->withHeader('Authorization', 'Bearer ' . $this->token)
@@ -73,7 +74,9 @@ class CurrencyControllerTest extends TestCase
                 'message' => 'Currencies retrieved successfully',
             ]);
 
-        $this->assertCount(3, $response->json('data'));
+        // Verificar que hay al menos las 3 currencies creadas (puede haber más de otros tests)
+        $this->assertGreaterThanOrEqual(3, count($response->json('data')));
+        $this->assertEquals($initialCount + 3, count($response->json('data')));
     }
 
     /**
@@ -81,9 +84,13 @@ class CurrencyControllerTest extends TestCase
      */
     public function test_can_create_currency_with_valid_data(): void
     {
+        // Usar datos únicos para evitar conflictos con datos existentes
+        $uniqueName = 'Test Currency ' . uniqid();
+        $uniqueSymbol = 'TC' . substr(uniqid(), -3);
+        
         $currencyData = [
-            'name' => 'US Dollar',
-            'symbol' => 'USD',
+            'name' => $uniqueName,
+            'symbol' => $uniqueSymbol,
             'exchange_rate' => 1.0000,
         ];
 
@@ -107,15 +114,15 @@ class CurrencyControllerTest extends TestCase
                 'success' => true,
                 'message' => 'Currency created successfully',
                 'data' => [
-                    'name' => 'US Dollar',
-                    'symbol' => 'USD',
+                    'name' => $uniqueName,
+                    'symbol' => $uniqueSymbol,
                     'exchange_rate' => 1.0000,
                 ],
             ]);
 
         $this->assertDatabaseHas('currencies', [
-            'name' => 'US Dollar',
-            'symbol' => 'USD',
+            'name' => $uniqueName,
+            'symbol' => $uniqueSymbol,
             'exchange_rate' => 1.0000,
         ]);
     }

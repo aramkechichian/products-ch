@@ -1,0 +1,234 @@
+========================================
+CONTEXTO DEL PROYECTO - Products API
+========================================
+
+PROYECTO: API REST con Laravel 10, Docker, PostgreSQL, Sanctum, Swagger
+
+========================================
+ARQUITECTURA
+========================================
+
+- Laravel 10+ (API-first)
+- Docker (PHP 8.2-FPM, Nginx, PostgreSQL 15)
+- PostgreSQL como base de datos
+- Laravel Sanctum para autenticación (Bearer Tokens)
+- Swagger (l5-swagger) para documentación API
+- Estructura organizada por versiones (V1)
+
+========================================
+ESTRUCTURA DE CARPETAS
+========================================
+
+app/
+  Http/
+    Controllers/
+      Api/
+        Controller.php (base con success/error helpers)
+        V1/
+          Controller.php (base V1)
+          Auth/
+            AuthController.php (me, logoutAll)
+            LoginController.php (login, logout)
+            RegisterController.php (register)
+          CurrencyController.php (CRUD completo)
+    Requests/
+      BaseRequest.php (base para JSON responses)
+      V1/
+        BaseRequest.php
+        Auth/
+          LoginRequest.php
+          RegisterRequest.php
+        StoreCurrencyRequest.php
+        UpdateCurrencyRequest.php
+    Resources/
+      BaseResource.php (base con success wrapper)
+      V1/
+        BaseResource.php
+        UserResource.php
+        CurrencyResource.php
+    Middleware/
+      Authenticate.php (maneja 401 para API)
+  Models/
+    User.php (con HasApiTokens)
+    Currency.php
+    Product.php
+    ProductPrice.php
+  Exceptions/
+    Handler.php (maneja AuthenticationException, ValidationException, ModelNotFoundException)
+
+routes/
+  api.php (legacy)
+  api/v1.php (rutas versionadas)
+  web.php (solo health check)
+
+database/
+  migrations/
+    - create_users_table
+    - create_personal_access_tokens_table (Sanctum)
+    - create_currencies_table
+    - create_products_table
+    - create_product_prices_table
+  factories/
+    - CurrencyFactory.php
+    - ProductFactory.php
+    - UserFactory.php
+
+tests/
+  Feature/
+    CurrencyControllerTest.php (14 tests con DatabaseTransactions)
+
+docker/
+  nginx/default.conf
+  php/
+    php.ini
+    www.conf
+    docker-entrypoint.sh
+  postgres/init.sql
+
+scripts/
+  setup.sh (configura .env, APP_KEY, PostgreSQL)
+  start.sh (levanta Docker, instala dependencias, migraciones, Swagger)
+
+========================================
+ENDPOINTS IMPLEMENTADOS
+========================================
+
+AUTENTICACIÓN (públicos):
+- POST /api/v1/auth/register
+- POST /api/v1/auth/login
+
+AUTENTICACIÓN (protegidos - requieren token):
+- GET  /api/v1/auth/me
+- POST /api/v1/auth/logout
+- POST /api/v1/auth/logout-all
+
+CURRENCIES (todos protegidos - requieren token):
+- GET    /api/v1/currencies
+- POST   /api/v1/currencies
+- GET    /api/v1/currencies/{id}
+- PUT    /api/v1/currencies/{id}
+- DELETE /api/v1/currencies/{id}
+
+========================================
+MODELOS Y RELACIONES
+========================================
+
+Currency:
+- id, name, symbol, exchange_rate
+- hasMany: products, productPrices
+
+Product:
+- id, name, description, price, currency_id, tax_cost, manufacturing_cost
+- belongsTo: currency
+- hasMany: prices
+
+ProductPrice:
+- id, product_id, currency_id, price
+- belongsTo: product, currency
+- unique: [product_id, currency_id]
+
+========================================
+CONFIGURACIÓN IMPORTANTE
+========================================
+
+AUTENTICACIÓN:
+- Middleware: auth:sanctum
+- Error 401: {"success": false, "message": "Unauthenticated."}
+- Handler maneja AuthenticationException
+
+VALIDACIÓN:
+- BaseRequest asegura respuestas JSON
+- Mensajes en español
+- Handler maneja ValidationException (422)
+
+ERRORES:
+- 401: Unauthenticated
+- 404: ModelNotFoundException (ej: Currency not found)
+- 422: ValidationException
+- 409: Conflict (ej: no se puede eliminar currency con productos)
+
+SWAGGER:
+- Configurado en config/l5-swagger.php
+- Documentación en app/Http/Controllers/Controller.php (@OA\Info, @OA\Server, @OA\SecurityScheme)
+- Schema Currency definido
+- Todos los endpoints documentados con @OA\ annotations
+- URL: http://localhost:8080/api/documentation
+
+DOCKER:
+- app: PHP 8.2-FPM
+- nginx: puerto 8080
+- postgres: puerto 5432
+- Volúmenes: ./:/var/www/html (excluye vendor, node_modules)
+- Hot reload habilitado (OPcache deshabilitado en desarrollo)
+
+TESTS:
+- Feature tests con DatabaseTransactions (rollback, no limpia datos previos)
+- 14 tests para CurrencyController
+- Scripts en composer.json: test, test:currency
+
+========================================
+SCRIPTS Y COMANDOS
+========================================
+
+LEVANTAR PROYECTO:
+./scripts/start.sh
+- Verifica .env
+- Levanta Docker
+- Instala dependencias si faltan
+- Ejecuta migraciones
+- Instala/configura Swagger
+- Genera documentación
+- Muestra logs
+
+CONFIGURACIÓN INICIAL:
+./scripts/setup.sh
+- Crea .env desde .env.example
+- Configura PostgreSQL
+- Genera APP_KEY
+
+TESTS:
+docker-compose exec app php artisan test
+docker-compose exec app composer test
+docker-compose exec app composer test:currency
+
+MIGRACIONES:
+docker-compose exec app php artisan migrate
+(se ejecutan automáticamente en start.sh)
+
+SWAGGER:
+docker-compose exec app php artisan l5-swagger:generate
+
+========================================
+DECISIONES DE DISEÑO
+========================================
+
+1. API-First: Solo JSON responses, no vistas
+2. Versionado: Rutas en /api/v1/*
+3. Autenticación: Bearer Tokens con Sanctum
+4. Respuestas consistentes: {"success": bool, "message": string, "data": mixed}
+5. Validación: Form Requests con mensajes en español
+6. Resources: Transforman modelos a JSON consistente
+7. Tests: DatabaseTransactions (rollback, no afecta datos previos)
+8. Docker: Hot reload para desarrollo
+
+========================================
+PRÓXIMOS PASOS SUGERIDOS
+========================================
+
+- CRUD de Products
+- CRUD de ProductPrices
+- Endpoints para conversión de monedas
+- Seeders para datos iniciales
+- Más tests (Products, ProductPrices)
+- Frontend simple para consumir la API
+
+========================================
+NOTAS IMPORTANTES
+========================================
+
+- Los tests usan DatabaseTransactions (rollback), no RefreshDatabase
+- Swagger se genera automáticamente en start.sh
+- Las migraciones se ejecutan automáticamente en start.sh
+- El middleware Authenticate devuelve JSON para rutas /api/*
+- Los errores 404 usan ModelNotFoundException
+- Los endpoints protegidos requieren: Authorization: Bearer {token}
