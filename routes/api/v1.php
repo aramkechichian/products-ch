@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\Auth\AuthController;
 use App\Http\Controllers\Api\V1\Auth\LoginController;
 use App\Http\Controllers\Api\V1\Auth\RegisterController;
+use App\Http\Controllers\Api\V1\CurrencyController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -27,6 +28,11 @@ Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/logout', [LoginController::class, 'logout']);
     Route::post('/logout-all', [AuthController::class, 'logoutAll']);
+});
+
+// Currencies routes (protected)
+Route::middleware('auth:sanctum')->group(function () {
+    Route::apiResource('currencies', CurrencyController::class);
 });
 
 // Example: Product routes (commented out until we create the controller)

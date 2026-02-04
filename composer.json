@@ -51,6 +51,15 @@
         "post-autoload-dump": [
             "Illuminate\\\\Foundation\\\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi"
+        ],
+        "test": [
+            "php artisan test"
+        ],
+        "test:currency": [
+            "php artisan test --filter CurrencyControllerTest"
+        ],
+        "test:coverage": [
+            "php artisan test --coverage"
         ]
     },
     "extra": {

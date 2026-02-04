@@ -3,6 +3,7 @@
 namespace App\Exceptions;
 
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -71,6 +72,14 @@ class Handler extends ExceptionHandler
                 'message' => 'Validation failed',
                 'errors' => $e->errors(),
             ], 422);
+        }
+
+        if ($e instanceof ModelNotFoundException) {
+            $modelName = class_basename($e->getModel());
+            return response()->json([
+                'success' => false,
+                'message' => $modelName . ' not found',
+            ], 404);
         }
 
         // Default error response

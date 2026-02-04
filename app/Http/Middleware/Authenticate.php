@@ -31,13 +31,8 @@ class Authenticate extends Middleware
      */
     protected function unauthenticated($request, array $guards)
     {
-        if ($request->is('api/*')) {
-            abort(response()->json([
-                'success' => false,
-                'message' => 'Unauthenticated.',
-            ], 401));
-        }
-
+        // For API requests, let the parent method throw AuthenticationException
+        // which will be handled by the Exception Handler
         parent::unauthenticated($request, $guards);
     }
 }
