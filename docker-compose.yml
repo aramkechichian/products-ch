@@ -1,0 +1,89 @@
+version: '3.8'
+
+services:
+  # Servicio PHP-FPM
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        USER_ID: ${USER_ID:-1000}
+        GROUP_ID: ${GROUP_ID:-1000}
+    container_name: products-api-app
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./:/var/www/html
+      - ./docker/php/php.ini:/usr/local/etc/php/conf.d/custom.ini
+      # Excluir node_modules y vendor del volumen para mejor performance
+      - /var/www/html/node_modules
+      - /var/www/html/vendor
+    networks:
+      - products-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - PHP_IDE_CONFIG=serverName=products-api
+      - OPcache.enable=0
+      - OPcache.validate_timestamps=1
+    entrypoint: ["/usr/local/bin/docker-entrypoint.sh"]
+    command: ["php-fpm"]
+
+  # Servicio Nginx
+  nginx:
+    image: nginx:alpine
+    container_name: products-api-nginx
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - products-network
+    depends_on:
+      - app
+
+  # Servicio PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: products-api-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-products_db}
+      POSTGRES_USER: ${DB_USERNAME:-products_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-products_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - products-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-products_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Composer como servicio independiente
+  composer:
+    image: composer:latest
+    container_name: products-api-composer
+    volumes:
+      - ./:/app
+    working_dir: /app
+    networks:
+      - products-network
+    command: install
+    profiles:
+      - tools
+
+networks:
+  products-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
