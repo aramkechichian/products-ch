@@ -330,8 +330,43 @@ class ProductController extends Controller
      */
     public function update(UpdateProductRequest $request, Product $product, EventLogService $eventLogService): JsonResponse
     {
-        $product->update($request->validated());
+        // Guardar el precio anterior para comparar
+        $oldPrice = $product->price;
+        $validated = $request->validated();
+        $newPrice = $validated['price'] ?? null;
+        
+        // Actualizar el producto
+        $product->update($validated);
         $product->load('currency');
+
+        // Si el precio cambió, actualizar todos los ProductPrice relacionados
+        if ($newPrice !== null && $oldPrice != $newPrice) {
+            \Log::info("Product price changed from {$oldPrice} to {$newPrice}. Updating all related ProductPrices...");
+            
+            // Obtener todos los ProductPrice de este producto
+            $productPrices = ProductPrice::where('product_id', $product->id)
+                ->with('currency')
+                ->get();
+            
+            foreach ($productPrices as $productPrice) {
+                // Si es la moneda base del producto, usar el mismo precio (sin multiplicar)
+                if ($productPrice->currency_id == $product->currency_id) {
+                    $productPrice->update([
+                        'price' => round($newPrice, 2),
+                    ]);
+                    \Log::info("Updated base currency price (currency_id: {$productPrice->currency_id}) to: {$newPrice}");
+                } else {
+                    // Para otras monedas, calcular: nuevo_precio * exchange_rate
+                    $convertedPrice = $newPrice * $productPrice->currency->exchange_rate;
+                    $productPrice->update([
+                        'price' => round($convertedPrice, 2),
+                    ]);
+                    \Log::info("Updated price for currency {$productPrice->currency_id} ({$productPrice->currency->symbol}) to: {$convertedPrice} (base: {$newPrice} * rate: {$productPrice->currency->exchange_rate})");
+                }
+            }
+            
+            \Log::info("Updated {$productPrices->count()} ProductPrice records for product {$product->id}");
+        }
 
         // Log the event
         $eventLogService->logUpdate('Product', $product->id, $request);

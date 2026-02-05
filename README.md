@@ -516,9 +516,12 @@ Accept: application/json
 1. Valida que el producto exista (si no existe, retorna 404)
 2. Valida los campos enviados
 3. Si se envía `currency_id`, valida que exista en la tabla `currencies`
-4. Actualiza solo los campos enviados en el request
-5. Registra el evento en el log de eventos
-6. Retorna el producto actualizado con su información de moneda
+4. **Si se actualiza el campo `price`**, automáticamente actualiza todos los `ProductPrice` relacionados:
+   - Para la moneda base del producto: actualiza el precio al mismo valor (sin multiplicar)
+   - Para otras monedas: recalcula el precio usando `nuevo_precio * currency.exchange_rate`
+5. Actualiza solo los campos enviados en el request
+6. Registra el evento en el log de eventos
+7. Retorna el producto actualizado con su información de moneda
 
 **Ejemplo de Request:**
 ```http
