@@ -8,6 +8,7 @@ use App\Http\Requests\V1\StoreProductRequest;
 use App\Http\Requests\V1\UpdateProductRequest;
 use App\Http\Resources\V1\ProductResource;
 use App\Models\Product;
+use App\Services\EventLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
@@ -117,11 +118,37 @@ class ProductController extends Controller
      *     )
      * )
      */
-    public function store(StoreProductRequest $request): JsonResponse
+    public function store(StoreProductRequest $request, EventLogService $eventLogService): JsonResponse
     {
+        error_log("=== ProductController::store CALLED ===");
+        \Log::info('🚀 ProductController::store called');
+        
         $product = app(Product::class);
         $newProduct = $product->create($request->validated());
         $newProduct->load('currency');
+
+        error_log("Product created with ID: {$newProduct->id}");
+        \Log::info('✅ Product created with ID: ' . $newProduct->id);
+        
+        error_log("About to call EventLogService::logCreate...");
+        \Log::info('📋 Calling EventLogService::logCreate...');
+
+        // Log the event
+        try {
+            $eventLog = $eventLogService->logCreate('Product', $newProduct->id, $request);
+            
+            if ($eventLog) {
+                error_log("SUCCESS: EventLog created with ID: {$eventLog->id}");
+                \Log::info('✅ EventLog created successfully! ID: ' . $eventLog->id);
+            } else {
+                error_log("WARNING: EventLog creation returned NULL");
+                \Log::warning('⚠️ EventLog creation returned null');
+            }
+        } catch (\Exception $e) {
+            error_log("EXCEPTION in store when calling logCreate: " . $e->getMessage());
+            error_log("Exception: " . $e->getTraceAsString());
+            \Log::error('Exception calling logCreate: ' . $e->getMessage());
+        }
 
         return $this->success(
             new ProductResource($newProduct),
@@ -248,10 +275,13 @@ class ProductController extends Controller
      *     )
      * )
      */
-    public function update(UpdateProductRequest $request, Product $product): JsonResponse
+    public function update(UpdateProductRequest $request, Product $product, EventLogService $eventLogService): JsonResponse
     {
         $product->update($request->validated());
         $product->load('currency');
+
+        // Log the event
+        $eventLogService->logUpdate('Product', $product->id, $request);
 
         return $this->success(
             new ProductResource($product),
@@ -303,9 +333,13 @@ class ProductController extends Controller
      *     )
      * )
      */
-    public function destroy(Product $product): JsonResponse
+    public function destroy(Product $product, Request $request, EventLogService $eventLogService): JsonResponse
     {
+        $productId = $product->id;
         $product->delete();
+
+        // Log the event
+        $eventLogService->logDelete('Product', $productId, $request);
 
         return $this->success(
             null,

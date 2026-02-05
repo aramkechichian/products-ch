@@ -6,6 +6,7 @@ use App\Http\Requests\V1\StoreCurrencyRequest;
 use App\Http\Requests\V1\UpdateCurrencyRequest;
 use App\Http\Resources\V1\CurrencyResource;
 use App\Models\Currency;
+use App\Services\EventLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -102,10 +103,13 @@ class CurrencyController extends Controller
      *     )
      * )
      */
-    public function store(StoreCurrencyRequest $request): JsonResponse
+    public function store(StoreCurrencyRequest $request, EventLogService $eventLogService): JsonResponse
     {
         $currency = app(Currency::class);
         $newCurrency = $currency->create($request->validated());
+
+        // Log the event
+        $eventLogService->logCreate('Currency', $newCurrency->id, $request);
 
         return $this->success(
             new CurrencyResource($newCurrency),
@@ -227,9 +231,12 @@ class CurrencyController extends Controller
      *     )
      * )
      */
-    public function update(UpdateCurrencyRequest $request, Currency $currency): JsonResponse
+    public function update(UpdateCurrencyRequest $request, Currency $currency, EventLogService $eventLogService): JsonResponse
     {
         $currency->update($request->validated());
+
+        // Log the event
+        $eventLogService->logUpdate('Currency', $currency->id, $request);
 
         return $this->success(
             new CurrencyResource($currency),
@@ -281,7 +288,7 @@ class CurrencyController extends Controller
      *     )
      * )
      */
-    public function destroy(Currency $currency): JsonResponse
+    public function destroy(Currency $currency, Request $request, EventLogService $eventLogService): JsonResponse
     {
         // Verificar si tiene productos asociados
         if ($currency->products()->count() > 0) {
@@ -291,7 +298,11 @@ class CurrencyController extends Controller
             );
         }
 
+        $currencyId = $currency->id;
         $currency->delete();
+
+        // Log the event
+        $eventLogService->logDelete('Currency', $currencyId, $request);
 
         return $this->success(
             null,

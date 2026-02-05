@@ -267,3 +267,9 @@ NOTAS IMPORTANTES
   - Formato: products_YYYY-MM-DD_HHmmss.xlsx
   - Columnas: ID, Name, Description, Price, Currency, Currency Symbol, Tax Cost, Manufacturing Cost, Created At, Updated At
   - Requiere autenticación (Bearer Token)
+- SISTEMA DE EVENTOS (EVENTS_LOG): Registra automáticamente todos los POST, PUT, DELETE
+  - Tabla: events_log
+  - Campos: user_id, event_type (POST/PUT/DELETE), resource_type, resource_id, endpoint, method, data (JSON), ip_address, user_agent, timestamps
+  - Servicio: EventLogService con métodos logCreate(), logUpdate(), logDelete()
+  - Integrado en: CurrencyController (store, update, destroy) y ProductController (store, update, destroy)
+  - Guarda: usuario autenticado, tipo de evento, recurso afectado, payload completo, IP, user agent, fecha/hora
