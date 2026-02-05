@@ -9,4 +9,4 @@ cd "$PROJECT_ROOT"
 echo "🧪 Ejecutando tests..."
 echo ""
 
-docker-compose exec app composer test
+docker compose exec app composer test

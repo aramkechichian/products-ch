@@ -14,16 +14,16 @@ echo ""
 # Ver todas las rutas
 if [ "$1" = "--all" ] || [ "$1" = "-a" ]; then
     echo "📋 Todas las rutas:"
-    docker-compose exec app php artisan route:list
+    docker compose exec app php artisan route:list
 elif [ "$1" = "--api" ] || [ "$1" = "-api" ]; then
     echo "📋 Rutas de la API:"
-    docker-compose exec app php artisan route:list --path=api
+    docker compose exec app php artisan route:list --path=api
 elif [ "$1" = "--v1" ] || [ "$1" = "-v1" ]; then
     echo "📋 Rutas de la API V1:"
-    docker-compose exec app php artisan route:list --path=api/v1
+    docker compose exec app php artisan route:list --path=api/v1
 else
     echo "📋 Rutas de la API V1 (por defecto):"
-    docker-compose exec app php artisan route:list --path=api/v1
+    docker compose exec app php artisan route:list --path=api/v1
     echo ""
     echo "💡 Opciones disponibles:"
     echo "   ./scripts/routes.sh          - Ver rutas V1 (por defecto)"

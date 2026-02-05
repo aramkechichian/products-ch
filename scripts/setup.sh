@@ -34,7 +34,7 @@ sed -i.bak 's/^APP_TIMEZONE=.*/APP_TIMEZONE=UTC/' .env || echo "APP_TIMEZONE=UTC
 # Generar APP_KEY si no existe
 if ! grep -q "^APP_KEY=base64:" .env; then
     echo "🔑 Generando APP_KEY..."
-    docker-compose exec app php artisan key:generate
+    docker compose exec app php artisan key:generate
 else
     echo "✅ APP_KEY ya está configurado"
 fi
@@ -46,5 +46,5 @@ echo "✅ Configuración completada!"
 echo ""
 echo "📝 Próximos pasos:"
 echo "   1. Revisa el archivo .env y ajusta según sea necesario"
-echo "   2. Ejecuta: docker-compose up -d"
-echo "   3. Ejecuta: docker-compose exec app php artisan migrate"
+echo "   2. Ejecuta: docker compose up -d"
+echo "   3. Ejecuta: docker compose exec app php artisan migrate"
