@@ -52,7 +52,8 @@ class CurrencyController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $currencies = Currency::query()
+        $currency = app(Currency::class);
+        $currencies = $currency->newQuery()
             ->orderBy('name')
             ->get();
 
@@ -103,10 +104,11 @@ class CurrencyController extends Controller
      */
     public function store(StoreCurrencyRequest $request): JsonResponse
     {
-        $currency = Currency::create($request->validated());
+        $currency = app(Currency::class);
+        $newCurrency = $currency->create($request->validated());
 
         return $this->success(
-            new CurrencyResource($currency),
+            new CurrencyResource($newCurrency),
             'Currency created successfully',
             201
         );
@@ -156,10 +158,8 @@ class CurrencyController extends Controller
      *     )
      * )
      */
-    public function show(string $id): JsonResponse
+    public function show(Currency $currency): JsonResponse
     {
-        $currency = Currency::findOrFail($id);
-
         return $this->success(
             new CurrencyResource($currency),
             'Currency retrieved successfully'
@@ -227,9 +227,8 @@ class CurrencyController extends Controller
      *     )
      * )
      */
-    public function update(UpdateCurrencyRequest $request, string $id): JsonResponse
+    public function update(UpdateCurrencyRequest $request, Currency $currency): JsonResponse
     {
-        $currency = Currency::findOrFail($id);
         $currency->update($request->validated());
 
         return $this->success(
@@ -282,10 +281,8 @@ class CurrencyController extends Controller
      *     )
      * )
      */
-    public function destroy(string $id): JsonResponse
+    public function destroy(Currency $currency): JsonResponse
     {
-        $currency = Currency::findOrFail($id);
-
         // Verificar si tiene productos asociados
         if ($currency->products()->count() > 0) {
             return $this->error(

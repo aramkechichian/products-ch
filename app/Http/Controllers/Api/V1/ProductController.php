@@ -53,7 +53,8 @@ class ProductController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $products = Product::query()
+        $product = app(Product::class);
+        $products = $product->newQuery()
             ->with('currency')
             ->orderBy('name')
             ->get();
@@ -116,11 +117,12 @@ class ProductController extends Controller
      */
     public function store(StoreProductRequest $request): JsonResponse
     {
-        $product = Product::create($request->validated());
-        $product->load('currency');
+        $product = app(Product::class);
+        $newProduct = $product->create($request->validated());
+        $newProduct->load('currency');
 
         return $this->success(
-            new ProductResource($product),
+            new ProductResource($newProduct),
             'Product created successfully',
             201
         );
@@ -170,9 +172,9 @@ class ProductController extends Controller
      *     )
      * )
      */
-    public function show(string $id): JsonResponse
+    public function show(Product $product): JsonResponse
     {
-        $product = Product::with('currency')->findOrFail($id);
+        $product->load('currency');
 
         return $this->success(
             new ProductResource($product),
@@ -244,9 +246,8 @@ class ProductController extends Controller
      *     )
      * )
      */
-    public function update(UpdateProductRequest $request, string $id): JsonResponse
+    public function update(UpdateProductRequest $request, Product $product): JsonResponse
     {
-        $product = Product::findOrFail($id);
         $product->update($request->validated());
         $product->load('currency');
 
@@ -300,9 +301,8 @@ class ProductController extends Controller
      *     )
      * )
      */
-    public function destroy(string $id): JsonResponse
+    public function destroy(Product $product): JsonResponse
     {
-        $product = Product::findOrFail($id);
         $product->delete();
 
         return $this->success(
@@ -447,7 +447,8 @@ class ProductController extends Controller
      */
     public function search(SearchProductRequest $request): JsonResponse
     {
-        $query = Product::query()->with('currency');
+        $product = app(Product::class);
+        $query = $product->newQuery()->with('currency');
 
         // Filter by name (partial match, case-insensitive)
         if ($request->filled('name')) {

@@ -221,6 +221,10 @@ DECISIONES DE DISEÑO
 6. Resources: Transforman modelos a JSON consistente
 7. Tests: DatabaseTransactions (rollback, no afecta datos previos)
 8. Docker: Hot reload para desarrollo
+9. Inyección de Dependencias: Los controladores inyectan los modelos Eloquent en los métodos
+   - Ejemplo: public function index(Request $request, Currency $currency)
+   - Uso: $currency->newQuery() en lugar de Currency::query()
+   - Ventajas: Facilita testing con mocks, mejor desacoplamiento, más profesional
 
 ========================================
 PRÓXIMOS PASOS SUGERIDOS
@@ -246,3 +250,9 @@ NOTAS IMPORTANTES
 - TODOS los mensajes de validación están en INGLÉS (todos los Form Requests)
 - Products valida que currency_id exista antes de crear/actualizar (exists:currencies,id)
 - ProductResource incluye la relación currency cuando está cargada
+- INYECCIÓN DE DEPENDENCIAS: Todos los controladores inyectan los modelos Eloquent en los métodos
+  - CurrencyController: inyecta Currency en index, store, show, update, destroy
+  - ProductController: inyecta Product en index, store, show, update, destroy, search
+  - Uso: $model->newQuery() en lugar de Model::query(), $model->create() en lugar de Model::create()
+  - Laravel resuelve automáticamente la inyección mediante el service container
+  - Permite fácil mocking en tests: Mockery::mock(Currency::class)
