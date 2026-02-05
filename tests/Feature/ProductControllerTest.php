@@ -421,6 +421,61 @@ class ProductControllerTest extends TestCase
     }
 
     /**
+     * Test deleting a product also deletes its related product prices.
+     */
+    public function test_deleting_product_deletes_related_product_prices(): void
+    {
+        $product = Product::factory()->create([
+            'currency_id' => $this->currency->id,
+        ]);
+
+        // Create another currency for product prices
+        $otherCurrency = Currency::factory()->create([
+            'name' => 'Euro',
+            'symbol' => 'EUR',
+            'exchange_rate' => 0.85,
+        ]);
+
+        // Create product prices for this product
+        $productPrice1 = ProductPrice::factory()->create([
+            'product_id' => $product->id,
+            'currency_id' => $this->currency->id,
+        ]);
+
+        $productPrice2 = ProductPrice::factory()->create([
+            'product_id' => $product->id,
+            'currency_id' => $otherCurrency->id,
+        ]);
+
+        // Verify product prices exist
+        $this->assertDatabaseHas('product_prices', [
+            'id' => $productPrice1->id,
+        ]);
+        $this->assertDatabaseHas('product_prices', [
+            'id' => $productPrice2->id,
+        ]);
+
+        // Delete the product
+        $response = $this->withHeader('Authorization', 'Bearer ' . $this->token)
+            ->deleteJson("/api/v1/products/{$product->id}");
+
+        $response->assertStatus(200);
+
+        // Verify product is deleted
+        $this->assertDatabaseMissing('products', [
+            'id' => $product->id,
+        ]);
+
+        // Verify all related product prices are also deleted (cascade delete)
+        $this->assertDatabaseMissing('product_prices', [
+            'id' => $productPrice1->id,
+        ]);
+        $this->assertDatabaseMissing('product_prices', [
+            'id' => $productPrice2->id,
+        ]);
+    }
+
+    /**
      * Test deleting a non-existent product returns 404.
      */
     public function test_deleting_non_existent_product_returns_404(): void
