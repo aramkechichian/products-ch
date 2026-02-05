@@ -5,7 +5,6 @@ Esta carpeta contiene las colecciones de Postman para probar todos los endpoints
 ## Archivos Disponibles
 
 - **Products-API-Local.postman_collection.json** - Para entorno local (http://localhost:8080)
-- **Products-API-Laravel-Cloud.postman_collection.json** - Para Laravel Cloud (https://products-ch-master-kwbqsn.laravel.cloud)
 
 ## Cómo Importar en Postman
 
@@ -22,7 +21,6 @@ Cada colección tiene dos variables predefinidas:
 
 - **`base_url`**: URL base de la API
   - Local: `http://localhost:8080`
-  - Laravel Cloud: `https://products-ch-master-kwbqsn.laravel.cloud`
 
 - **`token`**: Token de autenticación (se guarda automáticamente después de hacer login)
 

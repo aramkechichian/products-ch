@@ -13,6 +13,7 @@ API REST profesional construida con Laravel 10+, Docker, PostgreSQL, Sanctum y S
 - [Bonus Tracks](#-bonus-tracks)
 - [Estructura del Proyecto](#-estructura-del-proyecto)
 - [Configuración](#-configuración)
+- [Mejoras Sugeridas](#-mejoras-sugeridas)
 
 ## 🚀 Requisitos Previos
 
@@ -259,6 +260,8 @@ Content-Type: application/json
 GET /api/v1/products
 Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
+
+> 💡 **Tip:** Para facilitar las pruebas de los endpoints, puedes importar la colección de Postman desde la carpeta `/docs`. La colección incluye todos los endpoints preconfigurados con ejemplos y autenticación automática. Ver [docs/README.md](docs/README.md) para más información.
 
 ## 📍 Endpoints Requeridos
 
@@ -1284,6 +1287,135 @@ docker-compose logs -f app
 # o
 tail -f storage/logs/laravel.log
 ```
+
+---
+
+## 💡 Mejoras Sugeridas
+
+Esta sección propone mejoras profesionales que podrían implementarse para optimizar y escalar la API.
+
+### 1. Eliminar Tabla `product_prices` - Cálculo Dinámico de Precios
+
+**Problema Actual:**
+La tabla `product_prices` almacena precios calculados (`product.price * currency.exchange_rate`) que son redundantes, ya que estos valores pueden calcularse dinámicamente cuando se necesiten.
+
+**Propuesta:**
+- **Eliminar la tabla `product_prices`** y su modelo asociado
+- **Calcular precios on-the-fly** usando un método en el modelo `Product` o un Accessor
+- **Crear un endpoint virtual** `/api/v1/products/{id}/prices` que calcule los precios dinámicamente
+
+**Ventajas:**
+- ✅ Elimina redundancia de datos
+- ✅ Reduce complejidad de la base de datos
+- ✅ Siempre muestra precios actualizados (sin necesidad de sincronización)
+- ✅ Menos código de mantenimiento
+- ✅ Mejor rendimiento en escritura (no necesita actualizar múltiples registros)
+
+**Implementación sugerida:**
+```php
+// En Product.php
+public function getPriceInCurrency($currencyId)
+{
+    $currency = Currency::findOrFail($currencyId);
+    return round($this->price * $currency->exchange_rate, 2);
+}
+
+public function getAllPrices()
+{
+    return Currency::all()->map(function ($currency) {
+        return [
+            'currency_id' => $currency->id,
+            'currency' => $currency,
+            'price' => $this->getPriceInCurrency($currency->id),
+        ];
+    });
+}
+```
+
+**Consideraciones:**
+- Si los `exchange_rate` cambian frecuentemente, esta solución es ideal
+- Si necesitas historial de precios, mantener la tabla con timestamps sería mejor
+- Para grandes volúmenes de datos, considerar cachear los resultados
+
+---
+
+### 2. Implementar Cache para Mejorar Rendimiento
+
+**Problema:**
+Las consultas a la base de datos se ejecutan en cada request, incluso para datos que raramente cambian (como monedas y productos).
+
+**Propuesta:**
+- **Cachear listas de monedas** (rara vez cambian)
+- **Cachear productos** con TTL configurable
+- **Cachear precios calculados** para evitar recálculos repetidos
+- **Invalidar cache** automáticamente en operaciones CREATE/UPDATE/DELETE
+
+**Implementación sugerida:**
+```php
+// Cachear monedas (TTL: 1 hora)
+$currencies = Cache::remember('currencies', 3600, function () {
+    return Currency::all();
+});
+
+// Cachear productos con paginación
+$products = Cache::tags(['products'])->remember(
+    "products.page.{$page}",
+    300,
+    fn() => Product::paginate(15)
+);
+
+// Invalidar cache al actualizar
+Cache::tags(['products'])->flush();
+```
+
+**Ventajas:**
+- ✅ Reducción significativa de carga en la base de datos
+- ✅ Respuestas más rápidas para los usuarios
+- ✅ Mejor escalabilidad
+- ✅ Menor costo de recursos en producción
+
+---
+
+### 3. Implementar Rate Limiting y Throttling
+
+**Problema:**
+La API no tiene protección contra abuso o uso excesivo, lo que puede llevar a:
+- Ataques de fuerza bruta en login
+- Sobrecarga del servidor
+- Consumo excesivo de recursos
+
+**Propuesta:**
+- **Rate limiting por usuario autenticado** (ej: 100 requests/minuto)
+- **Rate limiting más estricto para endpoints públicos** (login, register)
+- **Rate limiting por IP** para prevenir abuso
+- **Diferentes límites por tipo de endpoint** (más permisivo para GET, más estricto para POST/PUT/DELETE)
+
+**Implementación sugerida:**
+```php
+// En routes/api/v1.php
+Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
+    // Endpoints protegidos: 60 requests por minuto
+});
+
+Route::middleware('throttle:5,1')->group(function () {
+    // Login/Register: 5 requests por minuto
+});
+```
+
+**Ventajas:**
+- ✅ Protección contra abuso y ataques
+- ✅ Mejor experiencia para usuarios legítimos
+- ✅ Prevención de sobrecarga del servidor
+- ✅ Cumplimiento de mejores prácticas de seguridad
+
+---
+
+### Priorización Recomendada
+
+1. **Alta Prioridad:**
+   - ✅ Eliminar tabla `product_prices` (simplificación)
+   - ✅ Implementar Cache (mejora de rendimiento inmediata)
+   - ✅ Rate Limiting (seguridad básica)
 
 ---
 
