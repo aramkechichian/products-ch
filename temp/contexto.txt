@@ -31,6 +31,7 @@ app/
             LoginController.php (login, logout)
             RegisterController.php (register)
           CurrencyController.php (CRUD completo)
+          ProductController.php (CRUD completo)
     Requests/
       BaseRequest.php (base para JSON responses)
       V1/
@@ -40,12 +41,15 @@ app/
           RegisterRequest.php
         StoreCurrencyRequest.php
         UpdateCurrencyRequest.php
+        StoreProductRequest.php
+        UpdateProductRequest.php
     Resources/
       BaseResource.php (base con success wrapper)
       V1/
         BaseResource.php
         UserResource.php
         CurrencyResource.php
+        ProductResource.php
     Middleware/
       Authenticate.php (maneja 401 para API)
   Models/
@@ -109,6 +113,13 @@ CURRENCIES (todos protegidos - requieren token):
 - PUT    /api/v1/currencies/{id}
 - DELETE /api/v1/currencies/{id}
 
+PRODUCTS (todos protegidos - requieren token):
+- GET    /api/v1/products
+- POST   /api/v1/products (valida que currency_id exista)
+- GET    /api/v1/products/{id}
+- PUT    /api/v1/products/{id} (valida que currency_id exista si se envía)
+- DELETE /api/v1/products/{id}
+
 ========================================
 MODELOS Y RELACIONES
 ========================================
@@ -138,7 +149,7 @@ AUTENTICACIÓN:
 
 VALIDACIÓN:
 - BaseRequest asegura respuestas JSON
-- Mensajes en español
+- Mensajes de error en INGLÉS (todos los Form Requests)
 - Handler maneja ValidationException (422)
 
 ERRORES:
@@ -206,7 +217,7 @@ DECISIONES DE DISEÑO
 2. Versionado: Rutas en /api/v1/*
 3. Autenticación: Bearer Tokens con Sanctum
 4. Respuestas consistentes: {"success": bool, "message": string, "data": mixed}
-5. Validación: Form Requests con mensajes en español
+5. Validación: Form Requests con mensajes en INGLÉS
 6. Resources: Transforman modelos a JSON consistente
 7. Tests: DatabaseTransactions (rollback, no afecta datos previos)
 8. Docker: Hot reload para desarrollo
@@ -215,7 +226,7 @@ DECISIONES DE DISEÑO
 PRÓXIMOS PASOS SUGERIDOS
 ========================================
 
-- CRUD de Products
+- CRUD de Products ✅ (completado)
 - CRUD de ProductPrices
 - Endpoints para conversión de monedas
 - Seeders para datos iniciales
@@ -232,3 +243,6 @@ NOTAS IMPORTANTES
 - El middleware Authenticate devuelve JSON para rutas /api/*
 - Los errores 404 usan ModelNotFoundException
 - Los endpoints protegidos requieren: Authorization: Bearer {token}
+- TODOS los mensajes de validación están en INGLÉS (todos los Form Requests)
+- Products valida que currency_id exista antes de crear/actualizar (exists:currencies,id)
+- ProductResource incluye la relación currency cuando está cargada

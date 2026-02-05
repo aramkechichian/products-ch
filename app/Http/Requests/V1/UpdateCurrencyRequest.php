@@ -38,13 +38,13 @@ class UpdateCurrencyRequest extends BaseRequest
     public function messages(): array
     {
         return [
-            'name.required' => 'El nombre de la moneda es obligatorio.',
-            'name.unique' => 'Ya existe una moneda con este nombre.',
-            'symbol.required' => 'El símbolo de la moneda es obligatorio.',
-            'symbol.unique' => 'Ya existe una moneda con este símbolo.',
-            'exchange_rate.required' => 'La tasa de cambio es obligatoria.',
-            'exchange_rate.numeric' => 'La tasa de cambio debe ser un número.',
-            'exchange_rate.min' => 'La tasa de cambio debe ser mayor o igual a 0.',
+            'name.required' => 'The currency name is required.',
+            'name.unique' => 'A currency with this name already exists.',
+            'symbol.required' => 'The currency symbol is required.',
+            'symbol.unique' => 'A currency with this symbol already exists.',
+            'exchange_rate.required' => 'The exchange rate is required.',
+            'exchange_rate.numeric' => 'The exchange rate must be a number.',
+            'exchange_rate.min' => 'The exchange rate must be greater than or equal to 0.',
         ];
     }
 }

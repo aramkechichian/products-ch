@@ -39,6 +39,21 @@ use Illuminate\Routing\Controller as BaseController;
  *     @OA\Property(property="created_at", type="string", format="date-time"),
  *     @OA\Property(property="updated_at", type="string", format="date-time")
  * )
+ *
+ * @OA\Schema(
+ *     schema="Product",
+ *     type="object",
+ *     @OA\Property(property="id", type="integer", example=1),
+ *     @OA\Property(property="name", type="string", example="Laptop"),
+ *     @OA\Property(property="description", type="string", example="High-performance laptop"),
+ *     @OA\Property(property="price", type="number", format="float", example=1299.99),
+ *     @OA\Property(property="currency", ref="#/components/schemas/Currency"),
+ *     @OA\Property(property="currency_id", type="integer", example=1),
+ *     @OA\Property(property="tax_cost", type="number", format="float", example=100.00),
+ *     @OA\Property(property="manufacturing_cost", type="number", format="float", example=800.00),
+ *     @OA\Property(property="created_at", type="string", format="date-time"),
+ *     @OA\Property(property="updated_at", type="string", format="date-time")
+ * )
  */
 class Controller extends BaseController
 {

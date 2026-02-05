@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\Auth\AuthController;
 use App\Http\Controllers\Api\V1\Auth\LoginController;
 use App\Http\Controllers\Api\V1\Auth\RegisterController;
 use App\Http\Controllers\Api\V1\CurrencyController;
+use App\Http\Controllers\Api\V1\ProductController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -33,13 +34,8 @@ Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
 // Currencies routes (protected)
 Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('currencies', CurrencyController::class);
+    
+    // Products routes - search must be before apiResource to avoid route conflicts
+    Route::get('products/search', [ProductController::class, 'search']);
+    Route::apiResource('products', ProductController::class);
 });
-
-// Example: Product routes (commented out until we create the controller)
-// Route::prefix('products')->middleware('auth:sanctum')->group(function () {
-//     Route::get('/', [\App\Http\Controllers\Api\V1\ProductController::class, 'index']);
-//     Route::post('/', [\App\Http\Controllers\Api\V1\ProductController::class, 'store']);
-//     Route::get('/{id}', [\App\Http\Controllers\Api\V1\ProductController::class, 'show']);
-//     Route::put('/{id}', [\App\Http\Controllers\Api\V1\ProductController::class, 'update']);
-//     Route::delete('/{id}', [\App\Http\Controllers\Api\V1\ProductController::class, 'destroy']);
-// });
