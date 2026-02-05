@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\Auth\AuthController;
 use App\Http\Controllers\Api\V1\Auth\LoginController;
 use App\Http\Controllers\Api\V1\Auth\RegisterController;
 use App\Http\Controllers\Api\V1\CurrencyController;
+use App\Http\Controllers\Api\V1\EventLogController;
 use App\Http\Controllers\Api\V1\ProductController;
 use Illuminate\Support\Facades\Route;
 
@@ -39,4 +40,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('products/search', [ProductController::class, 'search']);
     Route::get('products/export', [ProductController::class, 'export']);
     Route::apiResource('products', ProductController::class);
+    
+    // Event Logs routes
+    Route::get('event-logs', [EventLogController::class, 'index']);
+    Route::get('event-logs/{eventLog}', [EventLogController::class, 'show']);
 });
