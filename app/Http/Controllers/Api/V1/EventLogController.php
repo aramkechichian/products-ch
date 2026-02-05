@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Exports\EventLogsExport;
 use App\Http\Resources\V1\EventLogResource;
 use App\Models\EventLog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
 
 /**
  * @OA\Tag(
@@ -192,5 +194,90 @@ class EventLogController extends Controller
             new EventLogResource($eventLog),
             'Event log retrieved successfully'
         );
+    }
+
+    /**
+     * Export event logs to Excel.
+     *
+     * @OA\Get(
+     *     path="/api/v1/event-logs/export",
+     *     summary="Export event logs to Excel",
+     *     description="Downloads an Excel file containing event logs filtered by date range (start_date and end_date)",
+     *     operationId="exportEventLogs",
+     *     tags={"Event Logs"},
+     *     security={{"sanctum": {}}},
+     *     @OA\Parameter(
+     *         name="start_date",
+     *         in="query",
+     *         description="Start date (YYYY-MM-DD). If not provided, exports all events.",
+     *         required=false,
+     *         @OA\Schema(type="string", format="date", example="2024-01-01")
+     *     ),
+     *     @OA\Parameter(
+     *         name="end_date",
+     *         in="query",
+     *         description="End date (YYYY-MM-DD). If not provided, exports all events up to today.",
+     *         required=false,
+     *         @OA\Schema(type="string", format="date", example="2024-12-31")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Excel file download",
+     *         @OA\MediaType(
+     *             mediaType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+     *             @OA\Schema(
+     *                 type="string",
+     *                 format="binary"
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=401,
+     *         description="Unauthenticated",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string", example="Unauthenticated.")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=422,
+     *         description="Validation error",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string", example="Validation failed"),
+     *             @OA\Property(property="errors", type="object")
+     *         )
+     *     )
+     * )
+     */
+    public function export(Request $request)
+    {
+        // Validate date parameters
+        $request->validate([
+            'start_date' => ['sometimes', 'date', 'date_format:Y-m-d'],
+            'end_date' => ['sometimes', 'date', 'date_format:Y-m-d', 'after_or_equal:start_date'],
+        ], [
+            'start_date.date' => 'The start date must be a valid date.',
+            'start_date.date_format' => 'The start date must be in the format YYYY-MM-DD.',
+            'end_date.date' => 'The end date must be a valid date.',
+            'end_date.date_format' => 'The end date must be in the format YYYY-MM-DD.',
+            'end_date.after_or_equal' => 'The end date must be after or equal to the start date.',
+        ]);
+
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+
+        // Generate filename with date range if provided
+        $filename = 'event_logs_' . now()->format('Y-m-d_His');
+        if ($startDate && $endDate) {
+            $filename = 'event_logs_' . $startDate . '_to_' . $endDate . '_' . now()->format('His');
+        } elseif ($startDate) {
+            $filename = 'event_logs_from_' . $startDate . '_' . now()->format('His');
+        } elseif ($endDate) {
+            $filename = 'event_logs_until_' . $endDate . '_' . now()->format('His');
+        }
+        $filename .= '.xlsx';
+
+        return Excel::download(new EventLogsExport($startDate, $endDate), $filename);
     }
 }

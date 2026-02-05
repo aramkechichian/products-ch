@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\Auth\RegisterController;
 use App\Http\Controllers\Api\V1\CurrencyController;
 use App\Http\Controllers\Api\V1\EventLogController;
 use App\Http\Controllers\Api\V1\ProductController;
+use App\Http\Controllers\Api\V1\ProductPriceController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -41,7 +42,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('products/export', [ProductController::class, 'export']);
     Route::apiResource('products', ProductController::class);
     
-    // Event Logs routes
+    // Product Prices routes (nested under products)
+    Route::get('products/{product}/prices', [ProductPriceController::class, 'index']);
+    Route::post('products/{product}/prices', [ProductPriceController::class, 'store']);
+    
+    // Product Prices export route (must be before nested routes to avoid conflicts)
+    Route::get('product-prices/export', [ProductPriceController::class, 'export']);
+    
+    // Event Logs routes (export must be before show to avoid route conflicts)
+    Route::get('event-logs/export', [EventLogController::class, 'export']);
     Route::get('event-logs', [EventLogController::class, 'index']);
     Route::get('event-logs/{eventLog}', [EventLogController::class, 'show']);
 });

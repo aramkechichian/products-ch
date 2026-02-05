@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Currency;
 use App\Models\Product;
+use App\Models\ProductPrice;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Foundation\Testing\WithFaker;
@@ -514,21 +515,26 @@ class ProductControllerTest extends TestCase
      */
     public function test_can_search_products_by_price_range(): void
     {
+        $uniquePrefix = 'PriceRangeTest' . uniqid();
+        
         Product::factory()->create([
+            'name' => $uniquePrefix . ' Low Price',
             'price' => 50.00,
             'currency_id' => $this->currency->id,
         ]);
         Product::factory()->create([
+            'name' => $uniquePrefix . ' Mid Price',
             'price' => 150.00,
             'currency_id' => $this->currency->id,
         ]);
         Product::factory()->create([
+            'name' => $uniquePrefix . ' High Price',
             'price' => 250.00,
             'currency_id' => $this->currency->id,
         ]);
 
         $response = $this->withHeader('Authorization', 'Bearer ' . $this->token)
-            ->getJson('/api/v1/products/search?min_price=100&max_price=200');
+            ->getJson('/api/v1/products/search?name=' . urlencode($uniquePrefix) . '&min_price=100&max_price=200');
 
         $response->assertStatus(200)
             ->assertJson([
@@ -536,8 +542,15 @@ class ProductControllerTest extends TestCase
             ]);
 
         $products = $response->json('data.data');
-        $this->assertCount(1, $products);
-        $this->assertEquals(150.00, $products[0]['price']);
+        
+        // Filter to get only our products
+        $ourProducts = array_filter($products, function ($product) use ($uniquePrefix) {
+            return strpos($product['name'], $uniquePrefix) === 0;
+        });
+        $ourProducts = array_values($ourProducts); // Re-index array
+        
+        $this->assertCount(1, $ourProducts);
+        $this->assertEquals(150.00, $ourProducts[0]['price']);
     }
 
     /**
@@ -730,5 +743,215 @@ class ProductControllerTest extends TestCase
                 'success' => false,
             ])
             ->assertJsonValidationErrors(['max_price']);
+    }
+
+    /**
+     * Test that creating a product automatically creates a product_price if none exists.
+     */
+    public function test_creating_product_automatically_creates_product_price(): void
+    {
+        $productData = [
+            'name' => 'Test Product',
+            'description' => 'Test description',
+            'price' => 100.00,
+            'currency_id' => $this->currency->id,
+        ];
+
+        $response = $this->withHeader('Authorization', 'Bearer ' . $this->token)
+            ->postJson('/api/v1/products', $productData);
+
+        $response->assertStatus(201);
+
+        $product = Product::where('name', 'Test Product')->first();
+        $this->assertNotNull($product);
+
+        // Verify that a product_price was automatically created
+        $productPrice = ProductPrice::where('product_id', $product->id)
+            ->where('currency_id', $this->currency->id)
+            ->first();
+
+        $this->assertNotNull($productPrice);
+        $this->assertEquals(100.00, $productPrice->price);
+        $this->assertEquals($product->currency_id, $productPrice->currency_id);
+    }
+
+    /**
+     * Test that creating a product does not create product_price if one already exists.
+     */
+    public function test_creating_product_does_not_create_product_price_if_exists(): void
+    {
+        // Create a product with a product_price
+        $product = Product::factory()->create([
+            'currency_id' => $this->currency->id,
+        ]);
+
+        ProductPrice::create([
+            'product_id' => $product->id,
+            'currency_id' => $this->currency->id,
+            'price' => 50.00,
+        ]);
+
+        $initialPriceCount = ProductPrice::where('product_id', $product->id)->count();
+
+        // Create another product
+        $productData = [
+            'name' => 'New Product',
+            'description' => 'New description',
+            'price' => 200.00,
+            'currency_id' => $this->currency->id,
+        ];
+
+        $response = $this->withHeader('Authorization', 'Bearer ' . $this->token)
+            ->postJson('/api/v1/products', $productData);
+
+        $response->assertStatus(201);
+
+        $newProduct = Product::where('name', 'New Product')->first();
+        
+        // Verify that a product_price was created for the new product
+        $newProductPrice = ProductPrice::where('product_id', $newProduct->id)->first();
+        $this->assertNotNull($newProductPrice);
+        $this->assertEquals(200.00, $newProductPrice->price);
+
+        // Verify the original product still has the same number of prices
+        $this->assertEquals($initialPriceCount, ProductPrice::where('product_id', $product->id)->count());
+    }
+
+    /**
+     * Test creating a product with create_product_prices flag set to true.
+     */
+    public function test_creating_product_with_create_product_prices_flag(): void
+    {
+        // Create additional currencies with unique symbols to avoid conflicts
+        $eurCurrency = Currency::factory()->create([
+            'name' => 'Euro Test ' . uniqid(),
+            'symbol' => 'EUR' . uniqid(),
+            'exchange_rate' => 0.85,
+        ]);
+
+        $gbpCurrency = Currency::factory()->create([
+            'name' => 'British Pound Test ' . uniqid(),
+            'symbol' => 'GBP' . uniqid(),
+            'exchange_rate' => 0.75,
+        ]);
+
+        // Create a unique currency for the product base
+        $baseCurrency = Currency::factory()->create([
+            'name' => 'Base Currency Test ' . uniqid(),
+            'symbol' => 'BASE' . uniqid(),
+            'exchange_rate' => 1.0,
+        ]);
+
+        $productData = [
+            'name' => 'Test Product ' . uniqid(),
+            'description' => 'Test description',
+            'price' => 100.00,
+            'currency_id' => $baseCurrency->id,
+            'create_product_prices' => true,
+        ];
+
+        $response = $this->withHeader('Authorization', 'Bearer ' . $this->token)
+            ->postJson('/api/v1/products', $productData);
+
+        $response->assertStatus(201);
+
+        $product = Product::where('name', $productData['name'])->first();
+        $this->assertNotNull($product);
+
+        // Verify initial product_price was created (same currency, same price)
+        $initialPrice = ProductPrice::where('product_id', $product->id)
+            ->where('currency_id', $baseCurrency->id)
+            ->first();
+        $this->assertNotNull($initialPrice);
+        $this->assertEquals(100.00, $initialPrice->price);
+
+        // Verify prices were created for other currencies (with conversion)
+        $eurPrice = ProductPrice::where('product_id', $product->id)
+            ->where('currency_id', $eurCurrency->id)
+            ->first();
+        $this->assertNotNull($eurPrice);
+        $this->assertEquals(85.00, $eurPrice->price); // 100 * 0.85
+
+        $gbpPrice = ProductPrice::where('product_id', $product->id)
+            ->where('currency_id', $gbpCurrency->id)
+            ->first();
+        $this->assertNotNull($gbpPrice);
+        $this->assertEquals(75.00, $gbpPrice->price); // 100 * 0.75
+
+        // Verify that at least the expected prices exist (1 initial + 2 from flag)
+        // Note: There may be more prices if other currencies exist in the database
+        $this->assertGreaterThanOrEqual(3, ProductPrice::where('product_id', $product->id)->count());
+        
+        // Verify the specific prices we created exist
+        $this->assertNotNull($initialPrice, 'Initial product price should exist');
+        $this->assertNotNull($eurPrice, 'EUR product price should exist');
+        $this->assertNotNull($gbpPrice, 'GBP product price should exist');
+    }
+
+    /**
+     * Test creating a product with create_product_prices flag set to false (default).
+     */
+    public function test_creating_product_without_create_product_prices_flag(): void
+    {
+        // Create additional currency
+        $eurCurrency = Currency::factory()->create([
+            'name' => 'Euro',
+            'symbol' => 'EUR',
+            'exchange_rate' => 0.85,
+        ]);
+
+        $productData = [
+            'name' => 'Test Product',
+            'description' => 'Test description',
+            'price' => 100.00,
+            'currency_id' => $this->currency->id,
+            'create_product_prices' => false,
+        ];
+
+        $response = $this->withHeader('Authorization', 'Bearer ' . $this->token)
+            ->postJson('/api/v1/products', $productData);
+
+        $response->assertStatus(201);
+
+        $product = Product::where('name', 'Test Product')->first();
+
+        // Verify only initial product_price was created
+        $totalPrices = ProductPrice::where('product_id', $product->id)->count();
+        $this->assertEquals(1, $totalPrices);
+
+        // Verify no price was created for EUR
+        $eurPrice = ProductPrice::where('product_id', $product->id)
+            ->where('currency_id', $eurCurrency->id)
+            ->first();
+        $this->assertNull($eurPrice);
+    }
+
+    /**
+     * Test exporting products to Excel.
+     */
+    public function test_can_export_products_to_excel(): void
+    {
+        Product::factory()->count(3)->create([
+            'currency_id' => $this->currency->id,
+        ]);
+
+        $response = $this->withHeader('Authorization', 'Bearer ' . $this->token)
+            ->get('/api/v1/products/export');
+
+        $response->assertStatus(200)
+            ->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+
+        $this->assertStringContainsString('products_', $response->headers->get('Content-Disposition'));
+        $this->assertStringContainsString('.xlsx', $response->headers->get('Content-Disposition'));
+    }
+
+    /**
+     * Test exporting products to Excel requires authentication.
+     */
+    public function test_export_products_requires_authentication(): void
+    {
+        $response = $this->get('/api/v1/products/export');
+
+        $response->assertStatus(401);
     }
 }

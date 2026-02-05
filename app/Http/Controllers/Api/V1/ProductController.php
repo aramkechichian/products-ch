@@ -7,7 +7,9 @@ use App\Http\Requests\V1\SearchProductRequest;
 use App\Http\Requests\V1\StoreProductRequest;
 use App\Http\Requests\V1\UpdateProductRequest;
 use App\Http\Resources\V1\ProductResource;
+use App\Models\Currency;
 use App\Models\Product;
+use App\Models\ProductPrice;
 use App\Services\EventLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -81,14 +83,15 @@ class ProductController extends Controller
      *     @OA\RequestBody(
      *         required=true,
      *         @OA\JsonContent(
-     *             required={"name", "description", "price", "currency_id"},
-     *             @OA\Property(property="name", type="string", example="Laptop"),
-     *             @OA\Property(property="description", type="string", example="High-performance laptop for professionals"),
-     *             @OA\Property(property="price", type="number", format="float", example=1299.99),
-     *             @OA\Property(property="currency_id", type="integer", example=1),
-     *             @OA\Property(property="tax_cost", type="number", format="float", example=100.00),
-     *             @OA\Property(property="manufacturing_cost", type="number", format="float", example=800.00)
-     *         )
+             *             required={"name", "description", "price", "currency_id"},
+             *             @OA\Property(property="name", type="string", example="Laptop"),
+             *             @OA\Property(property="description", type="string", example="High-performance laptop for professionals"),
+             *             @OA\Property(property="price", type="number", format="float", example=1299.99),
+             *             @OA\Property(property="currency_id", type="integer", example=1),
+             *             @OA\Property(property="tax_cost", type="number", format="float", example=100.00),
+             *             @OA\Property(property="manufacturing_cost", type="number", format="float", example=800.00),
+             *             @OA\Property(property="create_product_prices", type="boolean", example=false, description="If true, automatically creates product prices for all currencies (except the product's base currency). Default: false")
+             *         )
      *     ),
      *     @OA\Response(
      *         response=201,
@@ -123,12 +126,62 @@ class ProductController extends Controller
         error_log("=== ProductController::store CALLED ===");
         \Log::info('🚀 ProductController::store called');
         
+        $validated = $request->validated();
+        $createProductPrices = $request->boolean('create_product_prices', false);
+        
+        // Remover create_product_prices del array antes de crear el producto
+        unset($validated['create_product_prices']);
+        
         $product = app(Product::class);
-        $newProduct = $product->create($request->validated());
+        $newProduct = $product->create($validated);
         $newProduct->load('currency');
 
         error_log("Product created with ID: {$newProduct->id}");
         \Log::info('✅ Product created with ID: ' . $newProduct->id);
+        
+        // Verificar si existe algún product_price para este producto
+        $hasProductPrices = ProductPrice::where('product_id', $newProduct->id)->exists();
+        
+        // Si no existe ningún product_price, crear uno con el mismo precio del producto (sin multiplicar por exchange_rate)
+        if (!$hasProductPrices) {
+            error_log("No product prices exist for this product. Creating initial product price...");
+            \Log::info('📋 No product prices exist. Creating initial product price with same price as product...');
+            
+            ProductPrice::create([
+                'product_id' => $newProduct->id,
+                'currency_id' => $newProduct->currency_id,
+                'price' => round($newProduct->price, 2),
+            ]);
+            
+            error_log("Created initial product price for currency {$newProduct->currency_id} with price: {$newProduct->price}");
+            \Log::info("✅ Created initial product price for currency {$newProduct->currency_id} with price: {$newProduct->price}");
+        }
+        
+        // Si create_product_prices es true, crear precios en todas las monedas (excepto la base)
+        if ($createProductPrices) {
+            error_log("Creating product prices for all currencies...");
+            \Log::info('📋 Creating product prices for all currencies...');
+            
+            $currencies = Currency::where('id', '!=', $newProduct->currency_id)->get();
+            
+            foreach ($currencies as $currency) {
+                $convertedPrice = $newProduct->price * $currency->exchange_rate;
+                
+                ProductPrice::updateOrCreate(
+                    [
+                        'product_id' => $newProduct->id,
+                        'currency_id' => $currency->id,
+                    ],
+                    [
+                        'price' => round($convertedPrice, 2),
+                    ]
+                );
+                
+                error_log("Created/updated price for currency {$currency->id} ({$currency->symbol}): {$convertedPrice}");
+            }
+            
+            \Log::info("Created/updated product prices for {$currencies->count()} currencies");
+        }
         
         error_log("About to call EventLogService::logCreate...");
         \Log::info('📋 Calling EventLogService::logCreate...');

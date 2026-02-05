@@ -33,6 +33,8 @@ app/
             RegisterController.php (register)
           CurrencyController.php (CRUD completo)
           ProductController.php (CRUD completo)
+          ProductPriceController.php (gestión de precios de productos)
+          EventLogController.php (consulta de eventos)
     Requests/
       BaseRequest.php (base para JSON responses)
       V1/
@@ -44,6 +46,8 @@ app/
         UpdateCurrencyRequest.php
         StoreProductRequest.php
         UpdateProductRequest.php
+        SearchProductRequest.php
+        StoreProductPriceRequest.php
     Resources/
       BaseResource.php (base con success wrapper)
       V1/
@@ -51,6 +55,8 @@ app/
         UserResource.php
         CurrencyResource.php
         ProductResource.php
+        ProductPriceResource.php
+        EventLogResource.php
     Middleware/
       Authenticate.php (maneja 401 para API)
   Models/
@@ -60,6 +66,7 @@ app/
     ProductPrice.php
   Exports/
     ProductsExport.php (exportación a Excel)
+    ProductPricesExport.php (exportación de product prices a Excel)
   Exceptions/
     Handler.php (maneja AuthenticationException, ValidationException, ModelNotFoundException)
 
@@ -118,12 +125,21 @@ CURRENCIES (todos protegidos - requieren token):
 
 PRODUCTS (todos protegidos - requieren token):
 - GET    /api/v1/products
-- POST   /api/v1/products (valida que currency_id exista)
+- POST   /api/v1/products (valida que currency_id exista, flag create_product_prices opcional)
 - GET    /api/v1/products/{id}
 - PUT    /api/v1/products/{id} (valida que currency_id exista si se envía)
 - DELETE /api/v1/products/{id}
 - GET    /api/v1/products/search (búsqueda avanzada con filtros opcionales)
 - GET    /api/v1/products/export (descarga Excel con todos los productos)
+
+PRODUCT PRICES (todos protegidos - requieren token):
+- GET    /api/v1/products/{product}/prices (lista precios de un producto)
+- POST   /api/v1/products/{product}/prices (crea/actualiza precio en otra moneda)
+- GET    /api/v1/product-prices/export (descarga Excel con todos los product prices)
+
+EVENT LOGS (todos protegidos - requieren token):
+- GET    /api/v1/event-logs (lista eventos paginados con filtros)
+- GET    /api/v1/event-logs/{id} (detalle de un evento)
 
 ========================================
 MODELOS Y RELACIONES
@@ -261,15 +277,37 @@ NOTAS IMPORTANTES
   - Uso: $model->newQuery() en lugar de Model::query(), $model->create() en lugar de Model::create()
   - Laravel resuelve automáticamente la inyección mediante el service container
   - Permite fácil mocking en tests: Mockery::mock(Currency::class)
-- EXPORTACIÓN A EXCEL: Endpoint GET /api/v1/products/export
-  - Usa Laravel Excel (maatwebsite/excel) para generar archivos .xlsx
-  - Incluye todos los productos con sus relaciones (currency)
-  - Formato: products_YYYY-MM-DD_HHmmss.xlsx
-  - Columnas: ID, Name, Description, Price, Currency, Currency Symbol, Tax Cost, Manufacturing Cost, Created At, Updated At
-  - Requiere autenticación (Bearer Token)
+- EXPORTACIÓN A EXCEL:
+  - GET /api/v1/products/export: Exporta todos los productos
+    - Formato: products_YYYY-MM-DD_HHmmss.xlsx
+    - Columnas: ID, Name, Description, Price, Currency, Currency Symbol, Tax Cost, Manufacturing Cost, Created At, Updated At
+  - GET /api/v1/product-prices/export: Exporta todos los product prices
+    - Formato: product_prices_YYYY-MM-DD_HHmmss.xlsx
+    - Columnas: Product Name, Currency Name, Price
+    - Ordenado por product_id y currency_id
+  - Ambos requieren autenticación (Bearer Token)
 - SISTEMA DE EVENTOS (EVENTS_LOG): Registra automáticamente todos los POST, PUT, DELETE
   - Tabla: events_log
   - Campos: user_id, event_type (POST/PUT/DELETE), resource_type, resource_id, endpoint, method, data (JSON), ip_address, user_agent, timestamps
   - Servicio: EventLogService con métodos logCreate(), logUpdate(), logDelete()
-  - Integrado en: CurrencyController (store, update, destroy) y ProductController (store, update, destroy)
+  - Integrado en: CurrencyController (store, update, destroy), ProductController (store, update, destroy) y ProductPriceController (store)
   - Guarda: usuario autenticado, tipo de evento, recurso afectado, payload completo, IP, user agent, fecha/hora
+  - Endpoints: GET /api/v1/event-logs (paginado con filtros), GET /api/v1/event-logs/{id}
+- PRODUCT PRICES: Gestión de precios de productos en diferentes monedas
+  - Endpoint POST /api/v1/products/{product}/prices: Crea o actualiza un precio para un producto en una moneda específica
+    - Fórmula: product.price * currency.exchange_rate
+    - Si ya existe, lo sobrescribe (updateOrCreate)
+    - Registra evento POST (creación) o PUT (actualización)
+    - No permite crear precio en la misma moneda base del producto
+  - Endpoint GET /api/v1/products/{product}/prices: Lista todos los precios de un producto en diferentes monedas
+    - Incluye relación currency
+    - Ordenado por created_at (desc)
+  - CREACIÓN AUTOMÁTICA: Al crear un producto, si no existe ningún product_price para ese producto, se crea automáticamente uno con:
+    - product_id: ID del producto recién creado
+    - currency_id: misma currency_id del producto
+    - price: mismo price del producto (SIN multiplicar por exchange_rate, precio directo)
+    - Esto solo ocurre si no existe ningún product_price para ese producto
+  - FLAG create_product_prices: Campo opcional (boolean, default: false) en POST /api/v1/products
+    - Si es true: Crea precios en todas las monedas (excepto la moneda base) usando price * exchange_rate
+    - Si es false: Solo crea el producto (y el product_price inicial si no existe ninguno)
+    - El flag funciona después de la creación automática del product_price inicial

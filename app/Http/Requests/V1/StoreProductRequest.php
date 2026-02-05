@@ -28,6 +28,7 @@ class StoreProductRequest extends BaseRequest
             'currency_id' => ['required', 'integer', 'exists:currencies,id'],
             'tax_cost' => ['sometimes', 'numeric', 'min:0'],
             'manufacturing_cost' => ['sometimes', 'numeric', 'min:0'],
+            'create_product_prices' => ['sometimes', 'boolean'],
         ];
     }
 
@@ -50,6 +51,7 @@ class StoreProductRequest extends BaseRequest
             'tax_cost.min' => 'The tax cost must be greater than or equal to 0.',
             'manufacturing_cost.numeric' => 'The manufacturing cost must be a number.',
             'manufacturing_cost.min' => 'The manufacturing cost must be greater than or equal to 0.',
+            'create_product_prices.boolean' => 'The create_product_prices field must be true or false.',
         ];
     }
 }
