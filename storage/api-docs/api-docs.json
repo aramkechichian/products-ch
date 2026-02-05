@@ -1455,6 +1455,54 @@
                 ]
             }
         },
+        "/api/v1/products/export": {
+            "get": {
+                "tags": [
+                    "Products"
+                ],
+                "summary": "Export all products to Excel",
+                "description": "Downloads an Excel file containing all products with their details. The file includes: ID, Name, Description, Price, Currency, Currency Symbol, Tax Cost, Manufacturing Cost, Created At, and Updated At.",
+                "operationId": "exportProducts",
+                "responses": {
+                    "200": {
+                        "description": "Excel file download",
+                        "content": {
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Unauthenticated."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
         "/api/v1/products/search": {
             "get": {
                 "tags": [

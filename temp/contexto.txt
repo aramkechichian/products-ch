@@ -13,6 +13,7 @@ ARQUITECTURA
 - PostgreSQL como base de datos
 - Laravel Sanctum para autenticación (Bearer Tokens)
 - Swagger (l5-swagger) para documentación API
+- Laravel Excel (maatwebsite/excel) para exportación a Excel
 - Estructura organizada por versiones (V1)
 
 ========================================
@@ -57,6 +58,8 @@ app/
     Currency.php
     Product.php
     ProductPrice.php
+  Exports/
+    ProductsExport.php (exportación a Excel)
   Exceptions/
     Handler.php (maneja AuthenticationException, ValidationException, ModelNotFoundException)
 
@@ -119,6 +122,8 @@ PRODUCTS (todos protegidos - requieren token):
 - GET    /api/v1/products/{id}
 - PUT    /api/v1/products/{id} (valida que currency_id exista si se envía)
 - DELETE /api/v1/products/{id}
+- GET    /api/v1/products/search (búsqueda avanzada con filtros opcionales)
+- GET    /api/v1/products/export (descarga Excel con todos los productos)
 
 ========================================
 MODELOS Y RELACIONES
@@ -256,3 +261,9 @@ NOTAS IMPORTANTES
   - Uso: $model->newQuery() en lugar de Model::query(), $model->create() en lugar de Model::create()
   - Laravel resuelve automáticamente la inyección mediante el service container
   - Permite fácil mocking en tests: Mockery::mock(Currency::class)
+- EXPORTACIÓN A EXCEL: Endpoint GET /api/v1/products/export
+  - Usa Laravel Excel (maatwebsite/excel) para generar archivos .xlsx
+  - Incluye todos los productos con sus relaciones (currency)
+  - Formato: products_YYYY-MM-DD_HHmmss.xlsx
+  - Columnas: ID, Name, Description, Price, Currency, Currency Symbol, Tax Cost, Manufacturing Cost, Created At, Updated At
+  - Requiere autenticación (Bearer Token)

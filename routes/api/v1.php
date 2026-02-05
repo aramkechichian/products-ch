@@ -35,7 +35,8 @@ Route::prefix('auth')->middleware('auth:sanctum')->group(function () {
 Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('currencies', CurrencyController::class);
     
-    // Products routes - search must be before apiResource to avoid route conflicts
+    // Products routes - search and export must be before apiResource to avoid route conflicts
     Route::get('products/search', [ProductController::class, 'search']);
+    Route::get('products/export', [ProductController::class, 'export']);
     Route::apiResource('products', ProductController::class);
 });

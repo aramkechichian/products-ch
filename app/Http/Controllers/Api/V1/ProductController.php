@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Exports\ProductsExport;
 use App\Http\Requests\V1\SearchProductRequest;
 use App\Http\Requests\V1\StoreProductRequest;
 use App\Http\Requests\V1\UpdateProductRequest;
@@ -9,6 +10,7 @@ use App\Http\Resources\V1\ProductResource;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
 
 /**
  * @OA\Tag(
@@ -309,6 +311,44 @@ class ProductController extends Controller
             null,
             'Product deleted successfully'
         );
+    }
+
+    /**
+     * Export all products to Excel.
+     *
+     * @OA\Get(
+     *     path="/api/v1/products/export",
+     *     summary="Export all products to Excel",
+     *     description="Downloads an Excel file containing all products with their details. The file includes: ID, Name, Description, Price, Currency, Currency Symbol, Tax Cost, Manufacturing Cost, Created At, and Updated At.",
+     *     operationId="exportProducts",
+     *     tags={"Products"},
+     *     security={{"sanctum": {}}},
+     *     @OA\Response(
+     *         response=200,
+     *         description="Excel file download",
+     *         @OA\MediaType(
+     *             mediaType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+     *             @OA\Schema(
+     *                 type="string",
+     *                 format="binary"
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=401,
+     *         description="Unauthenticated",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=false),
+     *             @OA\Property(property="message", type="string", example="Unauthenticated.")
+     *         )
+     *     )
+     * )
+     */
+    public function export()
+    {
+        $fileName = 'products_' . now()->format('Y-m-d_His') . '.xlsx';
+        
+        return Excel::download(new ProductsExport, $fileName);
     }
 
     /**
